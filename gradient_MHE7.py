@@ -320,50 +320,6 @@ i0_value = t_s[1,:]
 # vit = dl.plot( de, interactive=True )
 # vit.write_pdf( drt + '/init' )
 # ipdb.set_trace()
-#############
-## checking the plots
-'''
-ke = dl.Function( T )
-
-alpha_init = [ 0.01, 1000, 1000, 1000 ]
-ke_init = [ 0.01, 0.001, 0.001, 0.001 ]
-adj_pt = 1
-[ t_v, u_v, p_v,
-  t_ad, u_ad, p_ad ] = dolfin_MHE.dolfin_mhe( mesh_drt, i0_value, alpha_init,
-                                              ke_init, t_s, bp0, bp1, adj_pt )
-i = 0
-t = dt
-while t <= Tf:
-    t += dt
-    ke.vector().set_local( t_s[i,:] )
-    dl.plot( ke, interactive=True )
-    i += 1
-
-i = 0
-t = dt
-while t <= Tf:
-    t += dt
-    ke.vector().set_local( t_v[i,:] )
-    dl.plot( ke, interactive=True )
-    i += 1
-
-i = 0
-t = dt
-while t <= Tf:
-    t += dt
-    ke.vector().set_local( t_ad[i,:] )
-    dl.plot( ke, interactive=True )
-    i += 1
-
-u = dl.Function( V )
-u.vector().set_local( u_v )
-dl.plot( u, interactive=True )
-
-u.vector().set_local( u_ad )
-dl.plot( u, interactive=True )
-
-ipdb.set_trace()
-'''
 ###########
 ### class indix 
 ###########
@@ -901,11 +857,6 @@ qpL = assemble_qpL( djdk_list, djda_list, pjpi_list,
                     lii, t_v, u_v, t_ad,
                     u_ad, t_s, e_x, tin_pt,
                     dt, Tf, yeta0, yeta1, qpindx )
-
-# def assemble_qpL( djdk_list, djda_list, pjpi_list,
-#                   kernal_lii, t_v, u_v, t_adj, u_adj,
-#                   t_s, e_x, tin_range, 
-#                   dt, Tf, yeta0, yeta1, indx ):
     
 x_lb = -0.5 * np.ones( qpindx.num_v )
 x_ub = 0.5 * np.ones( qpindx.num_v ) 
@@ -920,10 +871,6 @@ for i in range( qpindx.num_v - qpindx.n_t ):
 [ k, fx_tmp ] = grad_armijo( tmp_x0, t_s, fxr, del_x,
                              qp_val, alpha_i, beta )
 tmp_x0 = tmp_x0 + ( beta**k ) * del_x
-# del_x_norm = del_x[ 0:qpindx.theta(1) ].dot(
-#     lii[ np.ix_( tin_pt, tin_pt ) ].dot(
-#         del_x[ 0:qpindx.theta(1) ] ) ) + del_x[ qpindx.theta(1): ].dot(
-#             del_x[ qpindx.theta(1): ] )
 del_x_norm = del_x.dot( del_x )
 itr_list.append( { "Itr No": lp_num,
                    "Fx": fx_tmp,
@@ -965,10 +912,7 @@ while ( ( del_x_norm > epsl ) and ( lp_num < lp_step ) ):
     [ k, fx_tmp ] = grad_armijo( tmp_x0, t_s, fxr, del_x,
                                  qp_val, alpha_i, beta, armijo_num )
     tmp_x0 = tmp_x0 + ( beta**k ) * del_x
-    # del_x_norm = del_x[ 0:qpindx.theta(1) ].dot(
-    #     lii[ np.ix_( tin_pt, tin_pt ) ].dot(
-    #         del_x[ 0:qpindx.theta(1) ] ) ) + del_x[ qpindx.theta(1): ].dot(
-    #             del_x[ qpindx.theta(1): ] )
+
     del_x_norm = del_x.dot( del_x )
     itr_list.append( { "Itr No": lp_num,
                        "Fx": fx_tmp,
@@ -1037,97 +981,3 @@ wr_p = dl.plot( p, title="estimate pressure", interactive=True )
 wr_p.write_pdf( ( drt + '/estimate_p') )
 
 np.save( ( drt + "/itr_list_new" ), itr_list )
-
-##################################
-### temp trush
-##################################
-
-'''
-############
-### 3d tensor generator/loader, no need for a 3d tensor
-############
-def vtt_assemble( mesh_drt, i=0, n_u=1 ):
-    import dolfin as dl
-    import numpy as np
-    import scipy.sparse as sp
-    mesh = dl.Mesh( mesh_drt )
-    T = dl.FunctionSpace( mesh, "CG", 2 )
-    V0 = dl.FunctionSpace( mesh, "DG", 0 )
-    u = dl.Function( V0 )
-    de = dl.TestFunction( T )
-    te = dl.TrialFunction( T )
-    coeff = np.zeros( n_u )
-    coeff[i] = 1.0
-    u.vector().set_local( coeff )
-    ltt_express = u*dl.div( dl.grad(te) )*de*dl.dx
-    ltt_mat = dl.assemble( ltt_express )
-    ltt_sparse = sp.csr_matrix( ltt_mat.array() )
-    return ltt_sparse
-
-def vuu_assemble( mesh_drt, i=0, n_u=1 ):
-    import dolfin as dl
-    import numpy as np
-    import scipy.sparse as sp
-    mesh = dl.Mesh( mesh_drt )
-    V = dl.VectorFunctionSpace( mesh,"CG",2 )
-    V0 = dl.FunctionSpace( mesh, "DG", 0 )
-    u = dl.Function( V0 )
-    de = dl.TestFunction( V )
-    te = dl.TrialFunction( V )
-    coeff = np.zeros( n_u )
-    coeff[i] = 1.0
-    u.vector().set_local( coeff )
-    ltt_express = u*dl.inner( de,te )*dl.dx
-    ltt_mat = dl.assemble( ltt_express )
-    ltt_sparse = sp.csr_matrix( ltt_mat.array() )
-    return ltt_sparse
-
-ipdb.set_trace()
-from IPython import parallel
-####################
-### slow parallel 
-####################
-n_v0 = V0.dofmap().ownership_range()[1] - V0.dofmap().ownership_range()[0] 
-filename_vtt = mesh_drt + "_cross/vtt"
-# list vtt, 0: len(alpha2_list): len(alpha4_list)+len(alpha2_list): len(alpha4_list)+len(alpha2_list)+len(alpha5_list): len(alpha_list) 
-
-try:
-    with open( filename_vtt, "rb" ) as data_vtt:
-        vtt = pickle.load( data_vtt )
-except IOError:
-    rc = parallel.Client()
-    lview = rc.load_balanced_view()
-    ltt_para = []
-    for i in range( len( alpha_list ) ):
-        ar = lview.apply( vtt_assemble, mesh_drt, alpha_list[i], n_v0 )
-        ltt_para.append( ar )
-        rc.wait( ltt_para )
-    vtt = []
-    for ele in ltt_para:
-        ltt.append( ele.get() )
-    with open( filename_vtt, "w" ) as lut_output:
-        pickle.dump( vtt, lut_output )
-    print "vtt has been saved into: " + filename_vtt
-
-filename_vuu = mesh_drt + "_cross/vuu"
-# list vuu, 0: len(alpha2_list): len(alpha4_list)+len(alpha2_list): len(alpha4_list)+len(alpha2_list)+len(alpha5_list): len(alpha_list) 
-try:
-    with open( filename_vuu, "rb" ) as data_vuu:
-        vuu = pickle.load( data_vuu )
-except IOError:
-    rc = parallel.Client()
-    lview = rc.load_balanced_view()
-    ltt_para = []
-    for i in range( len( ke_list ) ):
-        ar = lview.apply( vuu_assemble, mesh_drt, ke_list[i], n_v0 )
-        ltt_para.append( ar )
-        rc.wait( ltt_para )
-    vuu = []
-    for ele in ltt_para:
-        vuu.append( ele.get() )
-    with open( filename_vuu, "w" ) as lut_output:
-        pickle.dump( vuu, lut_output )
-    print "vuu has been saved into: " + filename_vuu
-
-
-'''
